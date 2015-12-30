@@ -40,6 +40,8 @@ with PiCamera() as camera:
 		print('recording')
 		while True:
 			key = raw_input('command (? for help):')
+			#if 
+			#n_key = cmd_conn.recv(1024)
 			if key == '?':
 				print('available commands:\r')
 				print('q: ends programm\r')
@@ -56,10 +58,20 @@ with PiCamera() as camera:
 				#	camera.capture(rawCapture, 'yuv')
 				#	print(rawCapture.array.shape)
 				stream = io.BytesIO()
-				camera.capture(stream, format='jpeg', bayer=True)				
+				camera.capture(stream, format='jpeg', bayer=True)
+			#enable network mode
+			if key == 'n':
+				cmd_socket = socket.socket()
+        			cmd_socket.bind(('0.0.0.0', 8001))
+        			cmd_socket.listen(0)
+				print('opened command socket')
+				cmd_conn, cmd_addr = cmd_socket.accept()
+				print('connected to {}'.format(cmd_addr))
+				
 			# if the `q` key was pressed, break from the loop
 			if key == 'q':
 				break
+
         	camera.stop_recording()
 		print('stopped recording')
  	finally:
