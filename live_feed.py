@@ -8,6 +8,8 @@ import time
 import socket
 import io
 
+filepath = '/home/laserlab/git/pi_camera/pics/'
+
 # initialize the camera and grab a reference to the raw camera capture
 print('start Raspi Camera')
 with PiCamera() as camera:
@@ -16,6 +18,7 @@ with PiCamera() as camera:
 	fwidth = 768
 	camera.resolution = (fheight, fwidth)
 	camera.framerate = 24
+	#camera.awb_mode = 'off'
 	print('opening socket')
 	server_socket = socket.socket()
 	server_socket.bind(('0.0.0.0', 8000))
@@ -26,12 +29,7 @@ with PiCamera() as camera:
 	conn, addr = server_socket.accept()
 	connection = conn.makefile('wb')
 	print('conected to {}'.format(addr))
-	cmd_socket = socket.socket()
-	cmd_socket.bind(('0.0.0.0', 8001))
-	cmd_socket.listen(0)
-	print('opening network control')
-	cmd_conn, cmd_addr = cmd_socket.accept()
-	print('connected to {}'.format(cmd_addr))
+	cmd_conn_open = False
 	# allow the camera to warmup
 	#time.sleep(0.1)
 
@@ -57,7 +55,7 @@ with PiCamera() as camera:
 				print('i: save image\r')
 			if key == 'i' or n_key == 'i': # save to file
 				filename = 'pic'+datetime.now().strftime("%Y-%d-%m_%Hh%Mm%Ss")+'.png'
-				camera.capture(filename, use_video_port=True)
+				camera.capture(filepath+filename, use_video_port=True)
 				print('Saved to {}'.format(filename))
 				camera.annotate_text = 'Saved to {}'.format(filename)
 				camera.wait_recording(1) # wait one second to display annotation
@@ -68,8 +66,24 @@ with PiCamera() as camera:
 				#	print(rawCapture.array.shape)
 				stream = io.BytesIO()
 				camera.capture(stream, format='jpeg', bayer=True)
+			if key == 'x':
+				camera.meter_mode = 'spot'
+			if key in str(range(0,9)):
+				#camera.framerate = 10/int(key)
+				camera.iso = int(key) * 100
+				print('ISO set to {}'.format(camera.iso))
 			#enable network mode
 			if key == 'n':
+				if cmd_conn_open == False: 
+					print('opening network control socket')
+					cmd_socket = socket.socket()
+					cmd_socket.bind(('0.0.0.0', 8001))
+					cmd_socket.listen(0)
+					print('waiting for network control')
+					cmd_conn, cmd_addr = cmd_socket.accept()
+					print('connected to {}'.format(cmd_addr))
+					cmd_conn_open = True
+				# read remote key press
 				n_key = cmd_conn.recv(1)
 			# if the `q` key was pressed, break from the loop
 			if key == 'q' or n_key == 'q':
@@ -78,8 +92,13 @@ with PiCamera() as camera:
         	camera.stop_recording()
 		print('stopped recording')
  	finally:
-		cmd_conn.close()
-		cmd_socket.close()
+		print('closing connections')
+		if cmd_conn_open == True:
+			cmd_conn.close()
+			cmd_socket.shutdown(0)
+			cmd_socket.close()
 		connection.close()
  		conn.close()
+		server_socket.shutdown(0)
  		server_socket.close()
+		print('exiting')
