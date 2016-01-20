@@ -21,6 +21,7 @@ with PiCamera() as camera:
 	#camera.awb_mode = 'off'
 	print('opening socket')
 	server_socket = socket.socket()
+	server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server_socket.bind(('0.0.0.0', 8000))
     	server_socket.listen(0)
 	print('waiting for connection ...')
